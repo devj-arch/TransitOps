@@ -23,13 +23,13 @@ def _seed_roles(db):
     db.commit()
 
 
-def _get_token(client: TestClient, db) -> str:
+def _get_token(client: TestClient, db, role: str = "Fleet Manager", email: str = "dashboard@test.com") -> str:
     _seed_roles(db)
-    role_obj = db.query(Role).filter(Role.name == "Fleet Manager").first()
+    role_obj = db.query(Role).filter(Role.name == role).first()
     client.post(
         "/auth/signup",
         json={
-            "email": "dashboard@test.com",
+            "email": email,
             "password": "secret123",
             "full_name": "Dashboard User",
             "role_id": role_obj.id,
@@ -38,9 +38,9 @@ def _get_token(client: TestClient, db) -> str:
     resp = client.post(
         "/auth/login",
         json={
-            "email": "dashboard@test.com",
+            "email": email,
             "password": "secret123",
-            "role": "Fleet Manager",
+            "role": role,
         },
     )
     return resp.json()["access_token"]
@@ -156,7 +156,7 @@ class TestDashboardAPI:
         assert data["fleet_utilization_pct"] == 33.3
 
     def test_vehicle_metrics_endpoints_return_expected_values(self, client: TestClient, db_session):
-        token = _get_token(client, db_session)
+        token = _get_token(client, db_session, role="Financial Analyst", email="fa-metrics@test.com")
 
         vehicle = Vehicle(
             registration_number="DASH-METRICS",

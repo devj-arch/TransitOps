@@ -1,3 +1,5 @@
+"""Maintenance routes — read/write split per RBAC.md."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -15,15 +17,23 @@ from app.utils.enums import Role
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
+# ── Role sets ────────────────────────────────────────────────────────────────
+READ_ROLES = [
+    Role.ADMIN.value,
+    Role.FLEET_MANAGER.value,
+    Role.SAFETY_OFFICER.value,
+    Role.FINANCIAL_ANALYST.value,
+]
+WRITE_ROLES = [Role.ADMIN.value, Role.FLEET_MANAGER.value]
+
+
+# ── Read endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/", response_model=list[MaintenanceLogOut])
 def list_maintenance_logs(
     db: Session = Depends(get_db),
-    current_user=Depends(
-        require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)
-    ),
+    current_user=Depends(require_roles(*READ_ROLES)),
 ):
-    """List all maintenance logs."""
     return db.query(MaintenanceLog).order_by(MaintenanceLog.created_at.desc()).all()
 
 
@@ -31,26 +41,22 @@ def list_maintenance_logs(
 def get_maintenance_log(
     log_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(
-        require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)
-    ),
+    current_user=Depends(require_roles(*READ_ROLES)),
 ):
-    """Get a single maintenance log by ID."""
     log = db.query(MaintenanceLog).filter(MaintenanceLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Maintenance log not found.")
     return log
 
 
+# ── Write endpoints ──────────────────────────────────────────────────────────
+
 @router.post("/", response_model=MaintenanceLogOut, status_code=status.HTTP_201_CREATED)
 def create_maintenance_log(
     data: MaintenanceLogCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(
-        require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)
-    ),
+    current_user=Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Open a new maintenance record. Sets vehicle status to In Shop."""
     try:
         log = maintenance_service.open_maintenance(db, data.model_dump())
     except AppException as e:
@@ -63,18 +69,13 @@ def update_maintenance_log(
     log_id: int,
     data: MaintenanceLogUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(
-        require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)
-    ),
+    current_user=Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Update a maintenance log's details (not closing it)."""
     log = db.query(MaintenanceLog).filter(MaintenanceLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Maintenance log not found.")
-
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(log, field, value)
-
     db.commit()
     db.refresh(log)
     return log
@@ -84,11 +85,8 @@ def update_maintenance_log(
 def close_maintenance_log(
     log_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(
-        require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)
-    ),
+    current_user=Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Close a maintenance record. Restores vehicle to Available (unless Retired)."""
     try:
         log = maintenance_service.close_maintenance(db, log_id)
     except AppException as e:

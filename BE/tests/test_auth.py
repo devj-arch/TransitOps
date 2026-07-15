@@ -145,7 +145,7 @@ class TestLogin:
             "password": "secret123",
             "role": "Fleet Manager",
         })
-        assert resp.status_code == 401  # locked out
+        assert resp.status_code == 423  # locked out
 
     def test_login_resets_failed_count_on_success(self, client: TestClient, db_session):
         _seed_roles(db_session)
