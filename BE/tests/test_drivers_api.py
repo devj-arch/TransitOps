@@ -8,6 +8,8 @@ from app.models.role import Role
 
 
 def _seed_roles(db):
+    if db.query(Role).first():
+        return  # already seeded
     for name in ["Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]:
         db.add(Role(name=name))
     db.commit()
@@ -16,9 +18,10 @@ def _seed_roles(db):
 def _get_token(client: TestClient, db, role: str = "Fleet Manager", email: str = "driver_test@test.com") -> str:
     """Sign up a user and return a valid JWT token."""
     _seed_roles(db)
+    role_obj = db.query(Role).filter(Role.name == role).first()
     client.post("/auth/signup", json={
         "email": email, "password": "secret123",
-        "full_name": "Test User", "role_id": 1,
+        "full_name": "Test User", "role_id": role_obj.id,
     })
     resp = client.post("/auth/login", json={
         "email": email, "password": "secret123",
@@ -97,8 +100,7 @@ class TestDriversAPI:
         }, headers=_auth(manager_token))
 
         resp = client.get("/drivers/", headers=_auth(dispatcher_token))
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        assert resp.status_code == 403  # Dispatcher cannot access Drivers
 
     def test_get_driver_by_id(self, client: TestClient, db_session):
         token = _get_token(client, db_session)

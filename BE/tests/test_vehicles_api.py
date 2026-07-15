@@ -7,6 +7,8 @@ from app.models.role import Role
 
 
 def _seed_roles(db):
+    if db.query(Role).first():
+        return  # already seeded
     for name in ["Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]:
         db.add(Role(name=name))
     db.commit()
@@ -20,9 +22,10 @@ def _get_token(
 ) -> str:
     """Sign up a user and return a valid JWT token."""
     _seed_roles(db)
+    role_obj = db.query(Role).filter(Role.name == role).first()
     client.post("/auth/signup", json={
         "email": email, "password": "secret123",
-        "full_name": "Test User", "role_id": 1,
+        "full_name": "Test User", "role_id": role_obj.id,
     })
     resp = client.post("/auth/login", json={
         "email": email, "password": "secret123",
@@ -82,23 +85,13 @@ class TestVehiclesAPI:
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
-    def test_financial_analyst_can_list_vehicles(self, client: TestClient, db_session):
-        manager_token = _get_token(client, db_session, email="manager@test.com")
+    def test_financial_analyst_cannot_list_vehicles(self, client: TestClient, db_session):
         token = _get_token(
-            client,
-            db_session,
-            role="Financial Analyst",
-            email="finance@test.com",
+            client, db_session,
+            role="Financial Analyst", email="finance@test.com",
         )
-
-        client.post("/vehicles/", json={
-            "registration_number": "VAN-FA", "model": "Finance", "type": "Van",
-            "max_capacity": 500.0,
-        }, headers=_auth(manager_token))
-
         resp = client.get("/vehicles/", headers=_auth(token))
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        assert resp.status_code == 403  # Financial Analyst cannot access Vehicles
 
     def test_get_vehicle_by_id(self, client: TestClient, db_session):
         token = _get_token(client, db_session)

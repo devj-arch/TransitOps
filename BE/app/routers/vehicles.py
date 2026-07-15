@@ -18,13 +18,7 @@ router = APIRouter(
 @router.get("/", response_model=list[VehicleOut])
 def list_vehicles(
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_roles(
-            Role.FLEET_MANAGER.value,
-            Role.DISPATCHER.value,
-            Role.FINANCIAL_ANALYST.value,
-        )
-    ),
+    current_user: User = Depends(require_roles(Role.FLEET_MANAGER.value)),
 ):
     """List all vehicles."""
     return db.query(Vehicle).all()
@@ -34,13 +28,7 @@ def list_vehicles(
 def get_vehicle(
     vehicle_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_roles(
-            Role.FLEET_MANAGER.value,
-            Role.DISPATCHER.value,
-            Role.FINANCIAL_ANALYST.value,
-        )
-    ),
+    current_user: User = Depends(require_roles(Role.FLEET_MANAGER.value)),
 ):
     """Get a single vehicle by ID."""
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()

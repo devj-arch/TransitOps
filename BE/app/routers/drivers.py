@@ -18,7 +18,6 @@ def list_drivers(
     current_user: User = Depends(
         require_roles(
             Role.FLEET_MANAGER.value,
-            Role.DISPATCHER.value,
             Role.SAFETY_OFFICER.value,
         )
     ),
@@ -34,7 +33,6 @@ def get_driver(
     current_user: User = Depends(
         require_roles(
             Role.FLEET_MANAGER.value,
-            Role.DISPATCHER.value,
             Role.SAFETY_OFFICER.value,
         )
     ),

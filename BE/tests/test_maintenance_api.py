@@ -6,6 +6,8 @@ from app.models.role import Role
 
 
 def _seed_roles(db):
+    if db.query(Role).first():
+        return  # already seeded
     for name in ["Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]:
         db.add(Role(name=name))
     db.commit()
@@ -13,11 +15,12 @@ def _seed_roles(db):
 
 def _get_token(client: TestClient, db, role: str = "Fleet Manager", email: str = "maint@test.com") -> str:
     _seed_roles(db)
+    role_obj = db.query(Role).filter(Role.name == role).first()
     client.post("/auth/signup", json={
         "email": email,
         "password": "secret123",
         "full_name": "Test User",
-        "role_id": 1,
+        "role_id": role_obj.id,
     })
     resp = client.post("/auth/login", json={
         "email": email,

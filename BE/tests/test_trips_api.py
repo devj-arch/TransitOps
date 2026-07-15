@@ -11,6 +11,8 @@ from app.utils.enums import DriverStatus, VehicleStatus
 
 
 def _seed_roles(db):
+    if db.query(Role).first():
+        return  # already seeded
     for name in ["Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]:
         db.add(Role(name=name))
     db.commit()
@@ -18,13 +20,14 @@ def _seed_roles(db):
 
 def _get_token(client: TestClient, db) -> str:
     _seed_roles(db)
+    role_obj = db.query(Role).filter(Role.name == "Dispatcher").first()
     client.post(
         "/auth/signup",
         json={
             "email": "trips@test.com",
             "password": "secret123",
             "full_name": "Trips User",
-            "role_id": 2,
+            "role_id": role_obj.id,
         },
     )
     resp = client.post(
