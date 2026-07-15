@@ -1,3 +1,5 @@
+"""Driver routes — read/write split per RBAC.md."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import exc
 from sqlalchemy.orm import Session
@@ -11,18 +13,23 @@ from app.utils.enums import Role
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
+# ── Role sets ────────────────────────────────────────────────────────────────
+READ_ROLES = [
+    Role.ADMIN.value,
+    Role.FLEET_MANAGER.value,
+    Role.DISPATCHER.value,
+    Role.SAFETY_OFFICER.value,
+]
+WRITE_ROLES = [Role.ADMIN.value, Role.SAFETY_OFFICER.value]
+
+
+# ── Read endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/", response_model=list[DriverOut])
 def list_drivers(
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_roles(
-            Role.FLEET_MANAGER.value,
-            Role.SAFETY_OFFICER.value,
-        )
-    ),
+    current_user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    """List all drivers."""
     return db.query(Driver).all()
 
 
@@ -30,27 +37,22 @@ def list_drivers(
 def get_driver(
     driver_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_roles(
-            Role.FLEET_MANAGER.value,
-            Role.SAFETY_OFFICER.value,
-        )
-    ),
+    current_user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    """Get a single driver by ID."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found.")
     return driver
 
 
+# ── Write endpoints ──────────────────────────────────────────────────────────
+
 @router.post("/", response_model=DriverOut, status_code=status.HTTP_201_CREATED)
 def create_driver(
     data: DriverCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)),
+    current_user: User = Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Register a new driver."""
     driver = Driver(**data.model_dump())
     db.add(driver)
     try:
@@ -70,25 +72,19 @@ def update_driver(
     driver_id: int,
     data: DriverUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)),
+    current_user: User = Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Update an existing driver."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found.")
-
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(driver, field, value)
-
     try:
         db.commit()
         db.refresh(driver)
     except exc.IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="License number already in use.",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="License number already in use.")
     return driver
 
 
@@ -96,9 +92,8 @@ def update_driver(
 def delete_driver(
     driver_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(Role.FLEET_MANAGER.value, Role.SAFETY_OFFICER.value)),
+    current_user: User = Depends(require_roles(*WRITE_ROLES)),
 ):
-    """Delete a driver."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found.")

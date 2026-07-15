@@ -85,13 +85,13 @@ class TestVehiclesAPI:
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
-    def test_financial_analyst_cannot_list_vehicles(self, client: TestClient, db_session):
+    def test_financial_analyst_can_list_vehicles(self, client: TestClient, db_session):
         token = _get_token(
             client, db_session,
             role="Financial Analyst", email="finance@test.com",
         )
         resp = client.get("/vehicles/", headers=_auth(token))
-        assert resp.status_code == 403  # Financial Analyst cannot access Vehicles
+        assert resp.status_code == 200  # Financial Analyst can read vehicles per RBAC.md
 
     def test_get_vehicle_by_id(self, client: TestClient, db_session):
         token = _get_token(client, db_session)

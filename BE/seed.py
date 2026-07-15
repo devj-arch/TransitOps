@@ -45,7 +45,7 @@ def seed():
 
     try:
         # ── Roles ────────────────────────────────────────────────────────────
-        role_names = ["Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]
+        role_names = ["Admin", "Fleet Manager", "Dispatcher", "Safety Officer", "Financial Analyst"]
         roles = {}
         for rn in role_names:
             role = Role(name=rn)
@@ -55,11 +55,12 @@ def seed():
 
         # ── Users (one per role) ─────────────────────────────────────────────
         users_data = [
+            {"email": "admin@transitops.dev", "password": "demo1234", "name": "Dev Joshi", "role": "Admin"},
             {"email": "fleet@transitops.dev", "password": "demo1234", "name": "Sarah Chen", "role": "Fleet Manager"},
             {"email": "dispatch@transitops.dev", "password": "demo1234", "name": "Mike Rivera", "role": "Dispatcher"},
             {"email": "safety@transitops.dev", "password": "demo1234", "name": "Dr. James Park", "role": "Safety Officer"},
             {"email": "finance@transitops.dev", "password": "demo1234", "name": "Emily Tran", "role": "Financial Analyst"},
-            {"email": "haneejoshi16@gmail.com", "password": "demo1234", "name": "Hanee", "role": "Financial Analyst"}
+            {"email": "haneejoshi16@gmail.com", "password": "demo1234", "name": "Hanee", "role": "Financial Analyst"},
         ]
         users = {}
         for u in users_data:
