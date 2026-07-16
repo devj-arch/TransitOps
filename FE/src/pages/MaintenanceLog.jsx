@@ -15,6 +15,10 @@ import {
 import { formatDate } from "../lib/format.js";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
+import { getStoredUser } from "../lib/auth.js";
+import { ROLES } from "../lib/roles.js";
+
+const WRITE_ROLES = [ROLES.ADMIN, ROLES.FLEET_MANAGER];
 
 const MAINTENANCE_TYPES = [
   "Oil Change",
@@ -41,6 +45,9 @@ export default function MaintenanceLog() {
     cost: "",
     start_date: new Date().toISOString().split("T")[0],
   });
+
+  const user = getStoredUser();
+  const canWrite = WRITE_ROLES.includes(user?.role);
 
   useEffect(() => {
     fetchData();
@@ -146,7 +153,13 @@ export default function MaintenanceLog() {
             </div>
             <button
               onClick={openModal}
-              className="flex items-center gap-2 rounded-md bg-signal px-4 py-2 text-sm font-medium text-ink hover:bg-signal-dark transition"
+              disabled={!canWrite}
+              title={canWrite ? "Create a new maintenance record" : "Only Fleet Manager can create maintenance records"}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                canWrite
+                  ? "bg-signal text-ink hover:bg-signal-dark"
+                  : "bg-black/5 text-muted cursor-not-allowed"
+              }`}
             >
               <IconPlus width="18" height="18" />
               New Maintenance
@@ -250,7 +263,11 @@ export default function MaintenanceLog() {
                       <div className="mt-4 flex gap-2">
                         <button
                           onClick={() => handleCloseLog(log.id)}
-                          className="flex items-center gap-2 rounded-md bg-transit px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 transition"
+                          disabled={!canWrite}
+                          title={canWrite ? "Mark maintenance as complete" : "Only Fleet Manager can close maintenance records"}
+                          className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                            canWrite ? "bg-transit text-white hover:bg-opacity-90" : "bg-black/5 text-muted cursor-not-allowed"
+                          }`}
                         >
                           <IconCheck width="16" height="16" />
                           Mark as Complete
@@ -333,7 +350,7 @@ export default function MaintenanceLog() {
 
       {/* Modal */}
       <Modal
-        isOpen={showModal}
+        open={showModal}
         onClose={() => setShowModal(false)}
         title="New Maintenance Record"
       >

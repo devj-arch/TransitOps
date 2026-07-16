@@ -7,6 +7,7 @@ export const ROLES = {
 };
 
 export const ALL_ROLES = [
+  ROLES.ADMIN,
   ROLES.FLEET_MANAGER,
   ROLES.DISPATCHER,
   ROLES.SAFETY_OFFICER,

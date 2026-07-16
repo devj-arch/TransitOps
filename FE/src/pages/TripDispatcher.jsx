@@ -20,6 +20,10 @@ import {
 import { formatDate } from "../lib/format.js";
 import Sidebar from "../components/Sidebar.jsx";
 import Modal from "../components/Modal.jsx";
+import { getStoredUser } from "../lib/auth.js";
+import { ROLES } from "../lib/roles.js";
+
+const WRITE_ROLES = [ROLES.ADMIN, ROLES.DISPATCHER];
 
 const TRIP_STATUSES = ["Draft", "Dispatched", "Completed", "Cancelled"];
 
@@ -45,6 +49,9 @@ export default function TripDispatcher() {
     actual_distance: "",
   });
 
+  const user = getStoredUser();
+  const canWrite = WRITE_ROLES.includes(user?.role);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -52,14 +59,14 @@ export default function TripDispatcher() {
   async function fetchData() {
     try {
       setLoading(true);
-      const [tripsData, vehiclesData, driversData] = await Promise.all([
+      const results = await Promise.allSettled([
         listTrips(),
         listVehicles(),
         listDrivers(),
       ]);
-      setTrips(tripsData || []);
-      setVehicles(vehiclesData || []);
-      setDrivers(driversData || []);
+      setTrips(results[0].status === "fulfilled" ? results[0].value || [] : []);
+      setVehicles(results[1].status === "fulfilled" ? results[1].value || [] : []);
+      setDrivers(results[2].status === "fulfilled" ? results[2].value || [] : []);
     } catch (err) {
       setError("Failed to load data");
       console.error(err);
@@ -184,7 +191,13 @@ export default function TripDispatcher() {
             </div>
             <button
               onClick={openCreateModal}
-              className="flex items-center gap-2 rounded-md bg-signal px-4 py-2 text-sm font-medium text-ink hover:bg-signal-dark transition"
+              disabled={!canWrite}
+              title={canWrite ? "Create a new trip" : "Only Dispatcher can create trips"}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                canWrite
+                  ? "bg-signal text-ink hover:bg-signal-dark"
+                  : "bg-black/5 text-muted cursor-not-allowed"
+              }`}
             >
               <IconPlus width="18" height="18" />
               Create Trip
@@ -290,14 +303,22 @@ export default function TripDispatcher() {
                     <>
                       <button
                         onClick={() => handleDispatchTrip(trip.id)}
-                        className="flex items-center gap-2 rounded-md bg-signal px-4 py-2 text-sm font-medium text-ink hover:bg-signal-dark transition"
+                        disabled={!canWrite}
+                        title={canWrite ? "Dispatch this trip" : "Only Dispatcher can dispatch trips"}
+                        className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                          canWrite ? "bg-signal text-ink hover:bg-signal-dark" : "bg-black/5 text-muted cursor-not-allowed"
+                        }`}
                       >
                         <IconPlay width="16" height="16" />
                         Dispatch
                       </button>
                       <button
                         onClick={() => handleCancelTrip(trip.id)}
-                        className="flex items-center gap-2 rounded-md bg-alert px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 transition"
+                        disabled={!canWrite}
+                        title={canWrite ? "Cancel this trip" : "Only Dispatcher can cancel trips"}
+                        className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                          canWrite ? "bg-alert text-white hover:bg-opacity-90" : "bg-black/5 text-muted cursor-not-allowed"
+                        }`}
                       >
                         <IconX width="16" height="16" />
                         Cancel
@@ -308,14 +329,22 @@ export default function TripDispatcher() {
                     <>
                       <button
                         onClick={() => openCompleteModal(trip)}
-                        className="flex items-center gap-2 rounded-md bg-transit px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 transition"
+                        disabled={!canWrite}
+                        title={canWrite ? "Complete this trip" : "Only Dispatcher can complete trips"}
+                        className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                          canWrite ? "bg-transit text-white hover:bg-opacity-90" : "bg-black/5 text-muted cursor-not-allowed"
+                        }`}
                       >
                         <IconCheck width="16" height="16" />
                         Complete
                       </button>
                       <button
                         onClick={() => handleCancelTrip(trip.id)}
-                        className="flex items-center gap-2 rounded-md bg-alert px-4 py-2 text-sm font-medium text-white hover:bg-opacity-90 transition"
+                        disabled={!canWrite}
+                        title={canWrite ? "Cancel this trip" : "Only Dispatcher can cancel trips"}
+                        className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                          canWrite ? "bg-alert text-white hover:bg-opacity-90" : "bg-black/5 text-muted cursor-not-allowed"
+                        }`}
                       >
                         <IconX width="16" height="16" />
                         Cancel
@@ -341,7 +370,7 @@ export default function TripDispatcher() {
 
       {/* Create Modal */}
       <Modal
-        isOpen={showCreateModal}
+        open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create New Trip"
       >
@@ -457,7 +486,7 @@ export default function TripDispatcher() {
 
       {/* Complete Modal */}
       <Modal
-        isOpen={showCompleteModal}
+        open={showCompleteModal}
         onClose={() => setShowCompleteModal(false)}
         title="Complete Trip"
       >

@@ -356,7 +356,7 @@ export default function FuelExpenseManagement() {
 
       {/* Fuel Modal */}
       <Modal
-        isOpen={showFuelModal}
+        open={showFuelModal}
         onClose={() => setShowFuelModal(false)}
         title="Log Fuel Purchase"
       >
@@ -444,7 +444,7 @@ export default function FuelExpenseManagement() {
 
       {/* Expense Modal */}
       <Modal
-        isOpen={showExpenseModal}
+        open={showExpenseModal}
         onClose={() => setShowExpenseModal(false)}
         title="Log Expense"
       >

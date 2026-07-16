@@ -13,10 +13,11 @@ from app.routers import settings as settings_router
 
 app = FastAPI(title=settings.APP_NAME, docs_url="/docs", redoc_url="/redoc")
 
-# CORS — uses FRONTEND_URL from config, falls back to localhost
+# CORS — allow the configured frontend origin + localhost dev server
+_frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173").strip()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[getattr(settings, "FRONTEND_URL", "http://localhost:5173/")],
+    allow_origins=[_frontend_url, "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

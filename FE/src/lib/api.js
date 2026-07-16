@@ -108,6 +108,18 @@ export function getDashboardKpis() {
   return authGet("/dashboard/kpis");
 }
 
+export function getFleetAnalytics() {
+  return authGet("/dashboard/analytics/fleet");
+}
+
+export function getSafetyAnalytics() {
+  return authGet("/dashboard/analytics/safety");
+}
+
+export function getFinanceAnalytics() {
+  return authGet("/dashboard/analytics/finance");
+}
+
 export function getVehicleOperationalCost(vehicleId) {
   return authGet(`/dashboard/vehicles/${vehicleId}/operational-cost`);
 }
