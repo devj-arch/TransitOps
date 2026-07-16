@@ -85,6 +85,9 @@ def update_driver(
     except exc.IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="License number already in use.")
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update driver. Check the submitted values.")
     return driver
 
 
@@ -97,5 +100,18 @@ def delete_driver(
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found.")
-    db.delete(driver)
-    db.commit()
+
+    from app.models.trip import Trip
+    trip_count = db.query(Trip).filter(Trip.driver_id == driver_id).count()
+    if trip_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete this driver — they have {trip_count} trip(s). Remove those trips first.",
+        )
+
+    try:
+        db.delete(driver)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete driver.")

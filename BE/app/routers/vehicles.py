@@ -78,16 +78,21 @@ def update_vehicle(
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(vehicle, field, value)
+
     try:
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(vehicle, field, value)
         db.commit()
         db.refresh(vehicle)
     except exc.IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration number already in use.")
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update vehicle. Check the submitted values.")
     return vehicle
-
 
 @router.delete("/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_vehicle(
@@ -98,5 +103,32 @@ def delete_vehicle(
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
-    db.delete(vehicle)
-    db.commit()
+
+    # Check for related records before deleting
+    from app.models.expense import Expense
+    from app.models.fuel_log import FuelLog
+    from app.models.maintenance_log import MaintenanceLog
+    from app.models.trip import Trip
+
+    trips = db.query(Trip).filter(Trip.vehicle_id == vehicle_id).count()
+    fuel = db.query(FuelLog).filter(FuelLog.vehicle_id == vehicle_id).count()
+    maintenance = db.query(MaintenanceLog).filter(MaintenanceLog.vehicle_id == vehicle_id).count()
+    expenses = db.query(Expense).filter(Expense.vehicle_id == vehicle_id).count()
+
+    if trips or fuel or maintenance or expenses:
+        parts = []
+        if trips: parts.append(f"{trips} trip(s)")
+        if fuel: parts.append(f"{fuel} fuel log(s)")
+        if maintenance: parts.append(f"{maintenance} maintenance record(s)")
+        if expenses: parts.append(f"{expenses} expense(s)")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete this vehicle — it has {', '.join(parts)}. Remove those records first.",
+        )
+
+    try:
+        db.delete(vehicle)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete vehicle.")
