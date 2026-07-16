@@ -11,6 +11,10 @@ import { listDrivers, createDriver, updateDriver, deleteDriver } from "../lib/ap
 import { formatDate } from "../lib/format.js";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
+import { getStoredUser } from "../lib/auth.js";
+import { ROLES } from "../lib/roles.js";
+
+const WRITE_ROLES = [ROLES.ADMIN, ROLES.SAFETY_OFFICER];
 
 const LICENSE_CATEGORIES = ["LMV-Auto", "HMV", "HGMV", "All"];
 const DRIVER_STATUSES = ["Available", "On Trip", "Off Duty", "Suspended"];
@@ -31,6 +35,9 @@ export default function DriverManagement() {
     safety_score: "85",
     status: "Available",
   });
+
+  const user = getStoredUser();
+  const canWrite = WRITE_ROLES.includes(user?.role);
 
   useEffect(() => {
     fetchDrivers();
@@ -83,10 +90,10 @@ export default function DriverManagement() {
     setSuccess("");
 
     try {
-      const payload = {
-        ...formData,
-        safety_score: parseFloat(formData.safety_score),
-      };
+      const payload = Object.fromEntries(
+        Object.entries(formData).map(([k, v]) => [k, v === "" ? undefined : v])
+      );
+      if (payload.safety_score != null) payload.safety_score = parseFloat(payload.safety_score);
 
       if (editingId) {
         await updateDriver(editingId, payload);
@@ -135,7 +142,13 @@ export default function DriverManagement() {
             </div>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 rounded-md bg-signal px-4 py-2 text-sm font-medium text-ink hover:bg-signal-dark transition"
+              disabled={!canWrite}
+              title={canWrite ? "Add a new driver" : "Only Safety Officer can add drivers"}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                canWrite
+                  ? "bg-signal text-ink hover:bg-signal-dark"
+                  : "bg-black/5 text-muted cursor-not-allowed"
+              }`}
             >
               <IconPlus width="18" height="18" />
               Add Driver
@@ -247,16 +260,18 @@ export default function DriverManagement() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => openEditModal(driver)}
-                          className="p-2 text-muted hover:text-signal transition"
-                          title="Edit"
+                          onClick={() => canWrite && openEditModal(driver)}
+                          disabled={!canWrite}
+                          className={`p-2 transition ${canWrite ? "text-muted hover:text-signal" : "text-black/20 cursor-not-allowed"}`}
+                          title={canWrite ? "Edit driver" : "Only Safety Officer can edit drivers"}
                         >
                           <IconEdit width="18" height="18" />
                         </button>
                         <button
-                          onClick={() => handleDelete(driver.id)}
-                          className="p-2 text-muted hover:text-alert transition"
-                          title="Delete"
+                          onClick={() => canWrite && handleDelete(driver.id)}
+                          disabled={!canWrite}
+                          className={`p-2 transition ${canWrite ? "text-muted hover:text-alert" : "text-black/20 cursor-not-allowed"}`}
+                          title={canWrite ? "Delete driver" : "Only Safety Officer can delete drivers"}
                         >
                           <IconTrash2 width="18" height="18" />
                         </button>
@@ -272,7 +287,7 @@ export default function DriverManagement() {
 
       {/* Modal */}
       <Modal
-        isOpen={showModal}
+        open={showModal}
         onClose={() => setShowModal(false)}
         title={editingId ? "Edit Driver" : "Add Driver"}
       >

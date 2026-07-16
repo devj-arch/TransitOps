@@ -11,18 +11,21 @@ import {
   IconLogOut,
   IconMenu,
   IconX,
+  IconSettings,
 } from "./Icons.jsx";
 import { logout } from "../lib/api.js";
 import { clearSession, getStoredUser } from "../lib/auth.js";
+import { ROLES } from "../lib/roles.js";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", to: "/dashboard", icon: IconDashboard },
-  { label: "Vehicle Registry", to: "/vehicles", icon: IconTruck },
-  { label: "Drivers", to: "/drivers", icon: IconUser },
-  { label: "Trips", to: "/trips", icon: IconMap },
-  { label: "Maintenance", to: "/maintenance", icon: IconWrench },
-  { label: "Fuel & Expenses", to: "/fuel-expenses", icon: IconFuel },
-  { label: "Reports", to: "/reports", icon: IconChart },
+const ALL_NAV_ITEMS = [
+  { label: "Dashboard", to: "/dashboard", icon: IconDashboard, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.DISPATCHER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST] },
+  { label: "Vehicle Registry", to: "/vehicles", icon: IconTruck, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.DISPATCHER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST] },
+  { label: "Drivers", to: "/drivers", icon: IconUser, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.DISPATCHER, ROLES.SAFETY_OFFICER] },
+  { label: "Trips", to: "/trips", icon: IconMap, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.DISPATCHER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST] },
+  { label: "Maintenance", to: "/maintenance", icon: IconWrench, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST] },
+  { label: "Fuel & Expenses", to: "/fuel-expenses", icon: IconFuel, roles: [ROLES.ADMIN, ROLES.FINANCIAL_ANALYST] },
+  { label: "Reports", to: "/reports", icon: IconChart, roles: [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST] },
+  { label: "Settings", to: "/settings", icon: IconSettings, roles: [ROLES.ADMIN] },
 ];
 
 export default function Sidebar() {
@@ -30,6 +33,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const user = getStoredUser();
+  const userRole = user?.role;
 
   function handleLogout() {
     logout();
@@ -42,9 +46,13 @@ export default function Sidebar() {
   }
 
   function NavLinks() {
+    const visibleItems = ALL_NAV_ITEMS.filter(
+      (item) => !userRole || item.roles.includes(userRole)
+    );
+
     return (
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV_ITEMS.map(({ label, to, icon: Icon }) => {
+        {visibleItems.map(({ label, to, icon: Icon }) => {
           const active = isActive(to);
           return (
             <Link

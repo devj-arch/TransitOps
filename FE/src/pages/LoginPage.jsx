@@ -12,11 +12,17 @@ import {
   IconMap,
   IconShield,
   IconWallet,
+  IconSettings,
 } from "../components/Icons.jsx";
 import { login, ApiError } from "../lib/api.js";
 import { setSession } from "../lib/auth.js";
 
 const ROLES = [
+  {
+    value: "Admin",
+    description: "Full system access and settings management.",
+    Icon: IconSettings,
+  },
   {
     value: "Fleet Manager",
     description: "Oversees fleet assets, maintenance, and vehicle lifecycle.",
@@ -240,7 +246,6 @@ export default function LoginPage() {
                           {r.value}
                         </option>
                       ))}
-                      <option value="Admin">Admin</option>
                     </select>
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">
                       <IconChevronDown />

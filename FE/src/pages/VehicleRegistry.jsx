@@ -9,6 +9,10 @@ import {
 import { listVehicles, createVehicle, updateVehicle, deleteVehicle } from "../lib/api.js";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
+import { getStoredUser } from "../lib/auth.js";
+import { ROLES } from "../lib/roles.js";
+
+const WRITE_ROLES = [ROLES.ADMIN, ROLES.FLEET_MANAGER];
 
 const VEHICLE_TYPES = ["Van", "Truck", "Bike", "Car"];
 const VEHICLE_STATUSES = ["Available", "On Trip", "In Shop", "Retired"];
@@ -22,13 +26,16 @@ export default function VehicleRegistry() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     registration_number: "",
-    vehicle_name: "",
-    vehicle_type: "Van",
-    max_load_capacity: "",
+    model: "",
+    type: "Van",
+    max_capacity: "",
     odometer: "",
     acquisition_cost: "",
     status: "Available",
   });
+
+  const user = getStoredUser();
+  const canWrite = WRITE_ROLES.includes(user?.role);
 
   useEffect(() => {
     fetchVehicles();
@@ -51,9 +58,9 @@ export default function VehicleRegistry() {
     setEditingId(null);
     setFormData({
       registration_number: "",
-      vehicle_name: "",
-      vehicle_type: "Van",
-      max_load_capacity: "",
+      model: "",
+      type: "Van",
+      max_capacity: "",
       odometer: "",
       acquisition_cost: "",
       status: "Available",
@@ -65,12 +72,12 @@ export default function VehicleRegistry() {
     setEditingId(vehicle.id);
     setFormData({
       registration_number: vehicle.registration_number,
-      vehicle_name: vehicle.vehicle_name,
-      vehicle_type: vehicle.vehicle_type,
-      max_load_capacity: vehicle.max_load_capacity,
-      odometer: vehicle.odometer,
-      acquisition_cost: vehicle.acquisition_cost,
-      status: vehicle.status,
+      model: vehicle.model || "",
+      type: vehicle.type || "Van",
+      max_capacity: vehicle.max_capacity || "",
+      odometer: vehicle.odometer || "",
+      acquisition_cost: vehicle.acquisition_cost || "",
+      status: vehicle.status || "Available",
     });
     setShowModal(true);
   }
@@ -80,12 +87,20 @@ export default function VehicleRegistry() {
     setError("");
     setSuccess("");
 
+    // Clean payload: convert empty strings to undefined so they're excluded from JSON
+    const payload = Object.fromEntries(
+      Object.entries(formData).map(([k, v]) => [k, v === "" ? undefined : v])
+    );
+    if (payload.max_capacity != null) payload.max_capacity = Number(payload.max_capacity);
+    if (payload.odometer != null) payload.odometer = Number(payload.odometer);
+    if (payload.acquisition_cost != null) payload.acquisition_cost = Number(payload.acquisition_cost);
+
     try {
       if (editingId) {
-        await updateVehicle(editingId, formData);
+        await updateVehicle(editingId, payload);
         setSuccess("Vehicle updated successfully");
       } else {
-        await createVehicle(formData);
+        await createVehicle(payload);
         setSuccess("Vehicle created successfully");
       }
       setShowModal(false);
@@ -121,7 +136,13 @@ export default function VehicleRegistry() {
             </div>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 rounded-md bg-signal px-4 py-2 text-sm font-medium text-ink hover:bg-signal-dark transition"
+              disabled={!canWrite}
+              title={canWrite ? "Add a new vehicle" : "Only Fleet Manager can add vehicles"}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                canWrite
+                  ? "bg-signal text-ink hover:bg-signal-dark"
+                  : "bg-black/5 text-muted cursor-not-allowed"
+              }`}
             >
               <IconPlus width="18" height="18" />
               Add Vehicle
@@ -196,13 +217,13 @@ export default function VehicleRegistry() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-text">
-                      {vehicle.vehicle_name}
+                      {vehicle.model}
                     </td>
                     <td className="px-6 py-4 text-sm text-text">
-                      {vehicle.vehicle_type}
+                      {vehicle.type}
                     </td>
                     <td className="px-6 py-4 text-sm text-text">
-                      {vehicle.max_load_capacity} kg
+                      {vehicle.max_capacity} kg
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={vehicle.status} />
@@ -210,16 +231,18 @@ export default function VehicleRegistry() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => openEditModal(vehicle)}
-                          className="p-2 text-muted hover:text-signal transition"
-                          title="Edit"
+                          onClick={() => canWrite && openEditModal(vehicle)}
+                          disabled={!canWrite}
+                          className={`p-2 transition ${canWrite ? "text-muted hover:text-signal" : "text-black/20 cursor-not-allowed"}`}
+                          title={canWrite ? "Edit vehicle" : "Only Fleet Manager can edit vehicles"}
                         >
                           <IconEdit width="18" height="18" />
                         </button>
                         <button
-                          onClick={() => handleDelete(vehicle.id)}
-                          className="p-2 text-muted hover:text-alert transition"
-                          title="Delete"
+                          onClick={() => canWrite && handleDelete(vehicle.id)}
+                          disabled={!canWrite}
+                          className={`p-2 transition ${canWrite ? "text-muted hover:text-alert" : "text-black/20 cursor-not-allowed"}`}
+                          title={canWrite ? "Delete vehicle" : "Only Fleet Manager can delete vehicles"}
                         >
                           <IconTrash2 width="18" height="18" />
                         </button>
@@ -235,7 +258,7 @@ export default function VehicleRegistry() {
 
       {/* Modal */}
       <Modal
-        isOpen={showModal}
+        open={showModal}
         onClose={() => setShowModal(false)}
         title={editingId ? "Edit Vehicle" : "Add Vehicle"}
       >
@@ -258,14 +281,14 @@ export default function VehicleRegistry() {
             </div>
             <div>
               <label className="block text-sm font-medium text-text mb-1.5">
-                Vehicle Name *
+                Model *
               </label>
               <input
                 type="text"
                 required
-                value={formData.vehicle_name}
+                value={formData.model}
                 onChange={(e) =>
-                  setFormData({ ...formData, vehicle_name: e.target.value })
+                  setFormData({ ...formData, model: e.target.value })
                 }
                 placeholder="e.g., Van-05"
                 className="w-full rounded-md border border-black/10 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-signal focus:ring-2 focus:ring-signal/20"
@@ -276,9 +299,9 @@ export default function VehicleRegistry() {
                 Type *
               </label>
               <select
-                value={formData.vehicle_type}
+                value={formData.type}
                 onChange={(e) =>
-                  setFormData({ ...formData, vehicle_type: e.target.value })
+                  setFormData({ ...formData, type: e.target.value })
                 }
                 className="w-full rounded-md border border-black/10 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-signal focus:ring-2 focus:ring-signal/20"
               >
@@ -296,9 +319,9 @@ export default function VehicleRegistry() {
               <input
                 type="number"
                 required
-                value={formData.max_load_capacity}
+                value={formData.max_capacity}
                 onChange={(e) =>
-                  setFormData({ ...formData, max_load_capacity: parseFloat(e.target.value) })
+                  setFormData({ ...formData, max_capacity: parseFloat(e.target.value) })
                 }
                 placeholder="e.g., 500"
                 className="w-full rounded-md border border-black/10 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-signal focus:ring-2 focus:ring-signal/20"
