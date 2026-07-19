@@ -1,3 +1,4 @@
+import { notifySessionExpired } from "../components/SessionExpiredModal.jsx";
 import { getToken } from "./auth.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -31,6 +32,12 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    // 401 on an authenticated request = session expired
+    // 401 could show up on wrong password during login but we checking if user already logged in by "options.headers?.Authorization"
+    if (response.status === 401 && options.headers?.Authorization) {
+      // window.dispatchEvent(new CustomEvent("session-expired"));
+      notifySessionExpired();
+    }
     const message = body?.detail || "Something went wrong. Try again.";
     throw new ApiError(typeof message === "string" ? message : "Something went wrong. Try again.", response.status);
   }
