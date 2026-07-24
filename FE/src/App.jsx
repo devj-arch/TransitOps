@@ -1,6 +1,10 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import SessionExpiredModal from "./components/SessionExpiredModal.jsx";
+import NotificationToast from "./components/NotificationToast.jsx";
+import { getToken } from "./lib/auth.js";
+import { connectWebSocket } from "./lib/websocket.js";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -23,6 +27,11 @@ const FINANCE_ONLY = [ROLES.ADMIN, ROLES.FINANCIAL_ANALYST];
 const REPORTS_ROLES = [ROLES.ADMIN, ROLES.FLEET_MANAGER, ROLES.SAFETY_OFFICER, ROLES.FINANCIAL_ANALYST];
 
 function App() {
+  // Auto-connect WebSocket if already logged in (e.g. page refresh)
+  useEffect(() => {
+    if (getToken()) connectWebSocket();
+  }, []);
+
   return (
     <>
     <Routes>
@@ -67,6 +76,7 @@ function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     <SessionExpiredModal />
+    <NotificationToast />
     </>
   );
 }

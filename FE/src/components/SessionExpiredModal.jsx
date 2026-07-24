@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "../lib/auth.js";
+import { disconnectWebSocket } from "../lib/websocket.js";
 import { IconAlert } from "./Icons.jsx";
 
 const SESSION_EXPIRED_EVENT = "session-expired";
@@ -24,6 +25,7 @@ export default function SessionExpiredModal() {
   }, [handleExpired]);
 
   function handleConfirm() {
+    disconnectWebSocket();
     clearSession();
     setOpen(false);
     navigate("/login", { replace: true });

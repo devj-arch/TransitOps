@@ -1,7 +1,9 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.websocket_manager import LARGE_EXPENSE_THRESHOLD, broadcast_safe
 from app.dependencies.auth import require_roles
 from app.models.expense import Expense
 from app.schemas.expense import ExpenseCreate, ExpenseOut
@@ -46,6 +48,15 @@ def create_expense(
     db.add(expense)
     db.commit()
     db.refresh(expense)
+    broadcast_safe(
+        "expense_logged",
+        {"expense_id": expense.id, "vehicle_id": expense.vehicle_id, "amount": expense.amount, "category": expense.category}
+    )
+    if expense.amount >= LARGE_EXPENSE_THRESHOLD:
+        broadcast_safe(
+            "large_expense_alert",
+            {"expense_id": expense.id, "vehicle_id": expense.vehicle_id, "amount": expense.amount}
+        )
     return expense
 
 

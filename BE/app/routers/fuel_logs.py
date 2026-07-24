@@ -1,7 +1,9 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.websocket_manager import broadcast_safe
 from app.dependencies.auth import require_roles
 from app.models.fuel_log import FuelLog
 from app.schemas.fuel_log import FuelLogCreate, FuelLogOut
@@ -45,6 +47,10 @@ def create_fuel_log(
     db.add(log)
     db.commit()
     db.refresh(log)
+    broadcast_safe(
+        "fuel_logged",
+        {"fuel_log_id": log.id, "vehicle_id": log.vehicle_id, "liters": log.liters, "cost": log.cost}
+    )
     return log
 
 

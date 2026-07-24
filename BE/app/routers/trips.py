@@ -3,6 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.websocket_manager import broadcast_safe
+
 from app.core.database import get_db
 from app.core.exceptions import AppException
 from app.dependencies.auth import require_roles
@@ -58,6 +60,10 @@ def create_trip(
         trip = trip_service.create_trip(db, data)
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "trip_created",
+        {"trip_id": trip.id, "source": trip.source, "destination": trip.destination}
+    )
     return trip
 
 
@@ -71,6 +77,18 @@ def dispatch_trip(
         trip = trip_service.dispatch_trip(db, trip_id)
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "trip_status_changed",
+        {"trip_id": trip.id, "new_status": trip.status.value, "vehicle_id": trip.vehicle_id, "driver_id": trip.driver_id}
+    )
+    broadcast_safe(
+        "vehicle_status_changed",
+        {"vehicle_id": trip.vehicle_id, "new_status": "On Trip"}
+    )
+    broadcast_safe(
+        "driver_status_changed",
+        {"driver_id": trip.driver_id, "new_status": "On Trip"}
+    )
     return trip
 
 
@@ -85,6 +103,18 @@ def complete_trip(
         trip = trip_service.complete_trip(db, trip_id, data)
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "trip_status_changed",
+        {"trip_id": trip.id, "new_status": trip.status.value, "vehicle_id": trip.vehicle_id, "driver_id": trip.driver_id}
+    )
+    broadcast_safe(
+        "vehicle_status_changed",
+        {"vehicle_id": trip.vehicle_id, "new_status": "Available"}
+    )
+    broadcast_safe(
+        "driver_status_changed",
+        {"driver_id": trip.driver_id, "new_status": "Available"}
+    )
     return trip
 
 
@@ -98,4 +128,8 @@ def cancel_trip(
         trip = trip_service.cancel_trip(db, trip_id)
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "trip_status_changed",
+        {"trip_id": trip.id, "new_status": trip.status.value, "vehicle_id": trip.vehicle_id, "driver_id": trip.driver_id}
+    )
     return trip

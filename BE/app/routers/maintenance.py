@@ -1,10 +1,12 @@
 """Maintenance routes — read/write split per RBAC.md."""
 
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.exceptions import AppException
+from app.core.websocket_manager import broadcast_safe
 from app.dependencies.auth import require_roles
 from app.models.maintenance_log import MaintenanceLog
 from app.schemas.maintenance_log import (
@@ -61,6 +63,14 @@ def create_maintenance_log(
         log = maintenance_service.open_maintenance(db, data.model_dump())
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "maintenance_opened",
+        {"maintenance_id": log.id, "vehicle_id": log.vehicle_id, "description": log.description}
+    )
+    broadcast_safe(
+        "vehicle_status_changed",
+        {"vehicle_id": log.vehicle_id, "new_status": "In Shop"}
+    )
     return log
 
 
@@ -91,4 +101,12 @@ def close_maintenance_log(
         log = maintenance_service.close_maintenance(db, log_id)
     except AppException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
+    broadcast_safe(
+        "maintenance_closed",
+        {"maintenance_id": log.id, "vehicle_id": log.vehicle_id}
+    )
+    broadcast_safe(
+        "vehicle_status_changed",
+        {"vehicle_id": log.vehicle_id, "new_status": "Available"}
+    )
     return log

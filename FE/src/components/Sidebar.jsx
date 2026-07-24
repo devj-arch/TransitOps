@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   IconTruck,
@@ -15,6 +15,7 @@ import {
 } from "./Icons.jsx";
 import { logout } from "../lib/api.js";
 import { clearSession, getStoredUser } from "../lib/auth.js";
+import { disconnectWebSocket, isConnected } from "../lib/websocket.js";
 import { ROLES } from "../lib/roles.js";
 
 const ALL_NAV_ITEMS = [
@@ -36,6 +37,7 @@ export default function Sidebar() {
   const userRole = user?.role;
 
   function handleLogout() {
+    disconnectWebSocket();
     logout();
     clearSession();
     window.location.href = "/login";
@@ -153,6 +155,13 @@ export default function Sidebar() {
 }
 
 function SidebarFooter({ user, onLogout }) {
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setConnected(isConnected()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="border-t border-ink-line px-3 py-4">
       {user && (
@@ -162,7 +171,10 @@ function SidebarFooter({ user, onLogout }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink-text">{user.name || user.email}</p>
-            <p className="truncate text-xs text-ink-muted">{user.role}</p>
+            <p className="flex items-center gap-1.5 truncate text-xs text-ink-muted">
+              <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`} />
+              {user.role}
+            </p>
           </div>
         </div>
       )}
