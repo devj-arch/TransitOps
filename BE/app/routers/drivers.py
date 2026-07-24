@@ -1,8 +1,12 @@
 """Driver routes — read/write split per RBAC.md."""
 
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import exc
 from sqlalchemy.orm import Session
+
+from app.core.websocket_manager import LICENSE_EXPIRY_WARNING_DAYS, SAFETY_SCORE_THRESHOLD, broadcast_safe
 
 from app.core.database import get_db
 from app.dependencies.auth import require_roles
@@ -88,6 +92,41 @@ def update_driver(
     except Exception:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update driver. Check the submitted values.")
+
+    # Broadcast driver status change
+    broadcast_safe(
+        "driver_status_changed",
+        {"driver_id": driver.id, "driver_name": driver.name, "new_status": driver.status.value}
+    )
+
+    # Suspension alert
+    if driver.status.value == "Suspended":
+        broadcast_safe(
+            "driver_suspended",
+            {"driver_id": driver.id, "driver_name": driver.name}
+        )
+
+    # Safety score threshold check
+    if driver.safety_score < SAFETY_SCORE_THRESHOLD:
+        broadcast_safe(
+            "safety_score_low",
+            {"driver_id": driver.id, "driver_name": driver.name, "score": driver.safety_score, "threshold": SAFETY_SCORE_THRESHOLD}
+        )
+
+    # License expiry check
+    today = date.today()
+    days_left = (driver.license_expiry - today).days
+    if days_left < 0:
+        broadcast_safe(
+            "license_expired",
+            {"driver_id": driver.id, "driver_name": driver.name, "expired_on": str(driver.license_expiry)}
+        )
+    elif days_left <= LICENSE_EXPIRY_WARNING_DAYS:
+        broadcast_safe(
+            "license_expiring_soon",
+            {"driver_id": driver.id, "driver_name": driver.name, "days_left": days_left}
+        )
+
     return driver
 
 

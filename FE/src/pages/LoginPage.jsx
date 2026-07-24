@@ -16,6 +16,7 @@ import {
 } from "../components/Icons.jsx";
 import { login, ApiError } from "../lib/api.js";
 import { setSession } from "../lib/auth.js";
+import { connectWebSocket } from "../lib/websocket.js";
 
 const ROLES = [
   {
@@ -69,6 +70,7 @@ export default function LoginPage() {
     try {
       const result = await login({ email, password, role });
       setSession({ token: result.access_token, user: result.user, remember });
+      connectWebSocket();
       setSignedInAs(result.user);
 
       setTimeout(() => navigate("/", { replace: true }), 700);

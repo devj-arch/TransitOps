@@ -5,6 +5,7 @@ from sqlalchemy import exc
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.websocket_manager import broadcast_safe
 from app.dependencies.auth import require_roles
 from app.models.user import User
 from app.models.vehicle import Vehicle
@@ -92,6 +93,15 @@ def update_vehicle(
     except Exception:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update vehicle. Check the submitted values.")
+
+    broadcast_safe(
+        "vehicle_status_changed",
+        {
+            "vehicle_id": vehicle.id,
+            "registration_number": vehicle.registration_number,
+            "new_status": vehicle.status.value,
+        }
+    )
     return vehicle
 
 @router.delete("/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -129,6 +139,10 @@ def delete_vehicle(
     try:
         db.delete(vehicle)
         db.commit()
+        broadcast_safe(
+            "vehicle_status_changed",
+            {"vehicle_id": vehicle_id, "new_status": "deleted"}
+        )
     except Exception:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete vehicle.")
