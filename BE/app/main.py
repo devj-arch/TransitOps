@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.security import decode_access_token
-from app.core.websocket_manager import manager
+from app.core.websocket_manager import manager, set_main_loop
 from app.routers import auth, dashboard, drivers, expenses, fuel_logs, maintenance, trips, vehicles
 from app.routers import settings as settings_router
 
@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.APP_NAME, docs_url="/docs", redoc_url="/redoc")
 
-from app.core.websocket_manager import set_main_loop
 
 # TODO: migrate to lifespan handler when ready (on_event is deprecated)
 @app.on_event("startup")
@@ -87,10 +86,3 @@ async def websocket_endpoint(
 @app.get("/health")
 def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
-
-
-@app.on_event("startup")
-async def startup_event():
-    import asyncio
-    from app.services.license_checker import start_license_checker
-    asyncio.create_task(start_license_checker(interval_seconds=3600))
