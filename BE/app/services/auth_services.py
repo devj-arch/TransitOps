@@ -42,15 +42,16 @@ class AuthService:
             return None
 
         if user.is_locked:
-            if user.locked_until and datetime.utcnow() < user.locked_until:
+            if user.locked_until and (datetime.utcnow() < user.locked_until):
                 raise HTTPException(
                     status_code=status.HTTP_423_LOCKED,
                     detail="Account locked after 5 failed attempts. Try again in 15 minutes.",
                 )
-            user.is_locked = False
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            db.commit()
+            else:
+                user.is_locked = False
+                user.failed_login_attempts = 0
+                user.locked_until = None
+                db.commit()
 
         if not verify_password(password, user.password_hash):
             user.failed_login_attempts += 1
